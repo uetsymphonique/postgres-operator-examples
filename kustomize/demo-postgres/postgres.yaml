@@ -1,0 +1,58 @@
+apiVersion: postgres-operator.crunchydata.com/v1beta1
+kind: PostgresCluster
+metadata:
+  name: dba-postgres
+spec:
+  postgresVersion: 17
+  users:
+    - name: postgres
+    - name: dbateam
+      databases:
+        - dbateamdb
+  instances:
+    - name: pg-instance
+      replicas: 3
+      dataVolumeClaimSpec:
+        accessModes:
+        - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: 5Gi
+      
+  backups:
+    pgbackrest:
+      configuration:
+      - secret:
+          name: pgo-gcs-creds
+      global:
+        repo1-path: /pgbackrest/postgres-operator/dba-postgres/repo1
+        repo1-retention-full: "14"
+        repo1-retention-full-type: "count"        
+        repo2-retention-full: "14"
+        repo2-retention-full-type: "count" 
+      repos:
+      - name: repo1
+        schedules:
+          full: '0 1 * * *'
+          incremental: "0 */4 * * *"
+        gcs:
+          bucket: "uetsymphonique-postgres-backup-bucket"
+      - name: repo2
+        schedules:
+          full: '0 1 * * *'
+          incremental: "0 */4 * * *"
+        volume:
+          volumeClaimSpec:
+            accessModes:
+            - "ReadWriteOnce"
+            resources:
+              requests:
+                storage: 5Gi
+  patroni:
+    dynamicConfiguration:
+      synchronous_mode: true
+      synchronous_mode_strict: true
+      failsafe_mode: true
+  monitoring:
+    pgmonitor:
+      exporter: {}
